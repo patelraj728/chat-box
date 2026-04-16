@@ -1,6 +1,7 @@
 from flask import Flask,redirect,url_for,render_template,request,session
 from flask_socketio import SocketIO,rooms,join_room,leave_room,send
 import random
+import os
 from string import ascii_uppercase
 
 app = Flask(__name__)
@@ -118,4 +119,5 @@ def message(data):
 
 
 if __name__ == '__main__':
-    socketio.run(app,debug=True)
+    port = int(os.environ.get("PORT", 10000))
+    socketio.run(app, host="0.0.0.0", port=port)
