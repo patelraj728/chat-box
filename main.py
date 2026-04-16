@@ -1,3 +1,5 @@
+import eventlet
+eventlet.monkey_patch()
 from flask import Flask,redirect,url_for,render_template,request,session
 from flask_socketio import SocketIO,rooms,join_room,leave_room,send
 import random
