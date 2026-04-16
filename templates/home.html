@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Join Room</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+
+<body class="home-center">
+
+<div class="card">
+
+    <h2>Private Room</h2>
+
+    <form method="post">
+
+        <input type="text" name="name" placeholder="Your Name" value="{{name}}">
+        <input type="text" name="code" placeholder="Room Code" value="{{code}}">
+
+        <button type="submit" name="join">Join Room</button>
+        <button type="submit" name="create">Create Room</button>
+
+    </form>
+
+    {% if error %}
+    <div class="error">{{error}}</div>
+    {% endif %}
+
+</div>
+
+</body>
+</html>

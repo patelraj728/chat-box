@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+
+<title>Chat Room</title>
+
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+
+<body>
+
+<div class="chat-container">
+
+    <div class="header">
+        <div>Room: {{room}}</div>
+        <div id="names"></div>
+    </div>
+
+    <div class="messages" id="messages"></div>
+
+    <div class="input-area">
+        <input type="text" id="message" placeholder="Write a message...">
+        <button onclick="sendmessage()">Send</button>
+    </div>
+
+</div>
+
+<script>
+var socket = io();
+const messages = document.getElementById('messages');
+const names = document.getElementById('names');
+
+const myName = "{{name}}";
+
+const createMessage = (name, msg) => {
+
+    const isMe = name === myName;
+
+    const div = document.createElement("div");
+    div.classList.add("message", isMe ? "sent" : "received");
+
+    div.innerHTML = `
+        ${!isMe ? `<div class="username">${name}</div>` : ""}
+        <div>${msg}</div>
+        <div class="meta">${new Date().toLocaleTimeString()}</div>
+    `;
+
+    messages.appendChild(div);
+    messages.scrollTop = messages.scrollHeight;
+};
+
+socket.on('message', function(data){
+    names.textContent = data.names;
+    createMessage(data.name, data.message);
+});
+
+const sendmessage = () =>{
+    const input = document.getElementById('message');
+    if(input.value.trim() === "") return;
+
+    socket.emit("message", {data: input.value});
+    input.value = "";
+};
+
+document.getElementById("message").addEventListener("keydown", function(e){
+    if(e.key === "Enter" && !e.shiftKey){
+        e.preventDefault();
+        sendmessage();
+    }
+});
+</script>
+
+{% for msg in messages %}
+<script>
+createMessage("{{msg.name}}", "{{msg.message}}");
+</script>
+{% endfor %}
+
+</body>
+</html>
