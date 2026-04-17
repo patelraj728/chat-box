@@ -110,7 +110,7 @@ function sendImage() {
 
 // ✅ FIXED RECEIVE IMAGE (uses same UI)
 socket.on("receive_image", function(data) {
-    createMessage(data.name, data.url, true);
+    createMessage(data.name, data.image, true);
 });
 
 // ✅ IMAGE PREVIEW
