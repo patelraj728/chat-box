@@ -12,9 +12,9 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret_key'
 socketio = SocketIO(app)
 cloudinary.config(
-    cloud_name=os.environ.get("dzijek1ob"),
-    api_key=os.environ.get("559582719471361"),
-    api_secret=os.environ.get("-4qc65m9Jh9OCKzAgzfNinEze08")
+    cloud_name=os.environ.get("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.environ.get("CLOUDINARY_API_KEY"),
+    api_secret=os.environ.get("CLOUDINARY_API_SECRET")
 )
 rooms={}
 def generate_room_code(length):
