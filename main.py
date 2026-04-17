@@ -1,7 +1,7 @@
 import eventlet
 eventlet.monkey_patch()
-from flask import Flask,redirect,url_for,render_template,request,session
-from flask_socketio import SocketIO,rooms,join_room,leave_room,send
+from flask import Flask,redirect,url_for,render_template,request,session,jsonify
+from flask_socketio import SocketIO,rooms,join_room,leave_room,send,emit
 import random
 import os
 from string import ascii_uppercase
@@ -9,7 +9,7 @@ from string import ascii_uppercase
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret_key'
 socketio = SocketIO(app)
-
+UPLOAD_FOLDER = 'static/uploads'
 rooms={}
 def generate_room_code(length):
     while True:
@@ -116,7 +116,28 @@ def message(data):
     send(content,to=room)
     rooms[room]["messages"].append(content)
     
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    name = session.get('name')
+    file = request.files['image']
+    
+    if file:
+        filename = file.filename
+        path = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(path)
 
+        return jsonify({
+            "url": f"/static/uploads/{filename}","name":name
+        })
+    
+@socketio.on('send_image')
+def handle_image(data):
+    room = data['room']
+    name = session.get('name')
+    
+    emit('receive_image', {
+        "url": data['url'],"name":name
+    }, to=room)
 
 
 

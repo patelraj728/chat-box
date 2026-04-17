@@ -23,20 +23,26 @@
     <div class="messages" id="messages"></div>
 
     <div class="input-area">
+        <input type="file" id="imageInput" hidden>
+        <label for="imageInput" class="upload-icon">
+            <img src="/static/images/photo.png" id="previewImage" alt="Upload">
+        </label>
         <input type="text" id="message" placeholder="Write a message...">
-        <button onclick="sendmessage()">Send</button>
+        <button onclick="handleSend()">Send</button>
     </div>
 
 </div>
 
 <script>
 var socket = io();
+const currentRoom = "{{ room }}";
 const messages = document.getElementById('messages');
 const names = document.getElementById('names');
 
 const myName = "{{name}}";
 
-const createMessage = (name, msg) => {
+// ✅ UPDATED FUNCTION (supports image)
+const createMessage = (name, msg, isImage = false) => {
 
     const isMe = name === myName;
 
@@ -45,7 +51,11 @@ const createMessage = (name, msg) => {
 
     div.innerHTML = `
         ${!isMe ? `<div class="username">${name}</div>` : ""}
-        <div>${msg}</div>
+        <div>
+            ${isImage 
+                ? `<img src="${msg}" class="chat-image">` 
+                : msg}
+        </div>
         <div class="meta">${new Date().toLocaleTimeString()}</div>
     `;
 
@@ -69,9 +79,56 @@ const sendmessage = () =>{
 document.getElementById("message").addEventListener("keydown", function(e){
     if(e.key === "Enter" && !e.shiftKey){
         e.preventDefault();
-        sendmessage();
+        handleSend();
     }
 });
+
+function sendImage() {
+    let fileInput = document.getElementById("imageInput");
+    let file = fileInput.files[0];
+
+    if (!file) return;
+
+    let formData = new FormData();
+    formData.append("image", file);
+
+    fetch("/upload", {
+        method: "POST",
+        body: formData
+    })
+    .then(res => res.json())
+    .then(data => {
+        socket.emit("send_image", {
+            url: data.url,
+            room: currentRoom
+        });
+    });
+
+    fileInput.value = "";
+    document.getElementById("previewImage").src = "/static/images/photo.png";
+}
+
+// ✅ FIXED RECEIVE IMAGE (uses same UI)
+socket.on("receive_image", function(data) {
+    createMessage(data.name, data.url, true);
+});
+
+// ✅ IMAGE PREVIEW
+const input = document.getElementById("imageInput");
+const preview = document.getElementById("previewImage");
+
+input.addEventListener("change", function () {
+    const file = this.files[0];
+
+    if (file) {
+        preview.src = URL.createObjectURL(file);
+    }
+});
+
+function handleSend() {
+    sendmessage();
+    sendImage();
+}
 </script>
 
 {% for msg in messages %}
