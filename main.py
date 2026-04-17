@@ -4,12 +4,18 @@ from flask import Flask,redirect,url_for,render_template,request,session,jsonify
 from flask_socketio import SocketIO,rooms,join_room,leave_room,send,emit
 import random
 import os
+import cloudinary
+import cloudinary.uploader
 from string import ascii_uppercase
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret_key'
 socketio = SocketIO(app)
-UPLOAD_FOLDER = 'static/uploads'
+cloudinary.config(
+    cloud_name=os.environ.get("dzijek1ob"),
+    api_key=os.environ.get("559582719471361"),
+    api_secret=os.environ.get("-4qc65m9Jh9OCKzAgzfNinEze08")
+)
 rooms={}
 def generate_room_code(length):
     while True:
@@ -118,26 +124,26 @@ def message(data):
     
 @app.route('/upload', methods=['POST'])
 def upload_file():
-    name = session.get('name')
+    if 'image' not in request.files:
+        return {"error": "No file"}, 400
     file = request.files['image']
-    
-    if file:
-        filename = file.filename
-        path = os.path.join(UPLOAD_FOLDER, filename)
-        file.save(path)
-
-        return jsonify({
-            "url": f"/static/uploads/{filename}","name":name
-        })
+    if file.filename == "":
+        return {"error": "Empty file"}, 400
+    result = cloudinary.uploader.upload(file)
+    return {"url": result["secure_url"]}
     
 @socketio.on('send_image')
 def handle_image(data):
-    room = data['room']
+    room = session.get('room')
     name = session.get('name')
-    
-    emit('receive_image', {
-        "url": data['url'],"name":name
-    }, to=room)
+    if room not in rooms:
+        return
+    content = {
+        "name": name,
+        "image": data['url']
+    }
+    rooms[room]["messages"].append(content)
+    emit('receive_image', content, to=room)
 
 
 

@@ -133,9 +133,12 @@ function handleSend() {
 
 {% for msg in messages %}
 <script>
-createMessage("{{msg.name}}", "{{msg.message}}");
+    {% if msg.image %}
+        createMessage("{{msg.name}}", "{{msg.image}}", true);
+    {% else %}
+        createMessage("{{msg.name}}", "{{msg.message}}");
+    {% endif %}
 </script>
 {% endfor %}
-
 </body>
 </html>
