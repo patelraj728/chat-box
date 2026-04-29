@@ -3,34 +3,40 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-
-<title>Chat Room</title>
-
+<title>CHAT_ROOM // {{room}}</title>
 <link rel="stylesheet" href="/static/css/style.css">
 </head>
 
 <body>
 
+<div class="chat-wrapper">
 <div class="chat-container">
 
     <div class="header">
-        <div>Room: {{room}}</div>
-        <div id="names"></div>
+        <div class="header-bar">
+            <span>PRIVATE_ROOM.SH &mdash; ACTIVE SESSION</span>
+            <span>[OK]</span>
+        </div>
+        <div class="header-meta">
+            <div class="header-room">{{room}}</div>
+            <div id="names"></div>
+        </div>
     </div>
 
     <div class="messages" id="messages"></div>
 
     <div class="input-area">
+        <span class="input-prompt">{{name}}@room:~$</span>
         <input type="file" id="imageInput" hidden>
-        <label for="imageInput" class="upload-icon">
+        <label for="imageInput" class="upload-icon" title="Attach image">
             <img src="/static/images/photo.png" id="previewImage" alt="Upload">
         </label>
-        <input type="text" id="message" placeholder="Write a message...">
-        <button onclick="handleSend()">Send</button>
+        <input type="text" id="message" placeholder="type message..." autocomplete="off" spellcheck="false">
+        <button onclick="handleSend()">SEND</button>
     </div>
 
+</div>
 </div>
 
 <script>
@@ -38,28 +44,27 @@ var socket = io();
 const currentRoom = "{{ room }}";
 const messages = document.getElementById('messages');
 const names = document.getElementById('names');
-
 const myName = "{{name}}";
 
-// ✅ UPDATED FUNCTION (supports image)
 const createMessage = (name, msg, isImage = false) => {
-
     const isMe = name === myName;
 
-    const div = document.createElement("div");
-    div.classList.add("message", isMe ? "sent" : "received");
+    const wrapper = document.createElement("div");
+    wrapper.classList.add("message", isMe ? "sent" : "received");
 
-    div.innerHTML = `
-        ${!isMe ? `<div class="username">${name}</div>` : ""}
-        <div>
-            ${isImage 
-                ? `<img src="${msg}" class="chat-image">` 
-                : msg}
-        </div>
-        <div class="meta">${new Date().toLocaleTimeString()}</div>
-    `;
+    const bubble = document.createElement("div");
+    bubble.classList.add("msg-bubble");
 
-    messages.appendChild(div);
+    let inner = '';
+    if (!isMe) {
+        inner += `<div class="username">${name}</div>`;
+    }
+    inner += `<div>${isImage ? `<img src="${msg}" class="chat-image">` : msg}</div>`;
+    inner += `<div class="meta">${new Date().toLocaleTimeString()}</div>`;
+
+    bubble.innerHTML = inner;
+    wrapper.appendChild(bubble);
+    messages.appendChild(wrapper);
     messages.scrollTop = messages.scrollHeight;
 };
 
@@ -68,10 +73,9 @@ socket.on('message', function(data){
     createMessage(data.name, data.message);
 });
 
-const sendmessage = () =>{
+const sendmessage = () => {
     const input = document.getElementById('message');
     if(input.value.trim() === "") return;
-
     socket.emit("message", {data: input.value});
     input.value = "";
 };
@@ -86,7 +90,6 @@ document.getElementById("message").addEventListener("keydown", function(e){
 function sendImage() {
     let fileInput = document.getElementById("imageInput");
     let file = fileInput.files[0];
-
     if (!file) return;
 
     let formData = new FormData();
@@ -98,31 +101,22 @@ function sendImage() {
     })
     .then(res => res.json())
     .then(data => {
-        socket.emit("send_image", {
-            url: data.url,
-            room: currentRoom
-        });
+        socket.emit("send_image", { url: data.url, room: currentRoom });
     });
 
     fileInput.value = "";
     document.getElementById("previewImage").src = "/static/images/photo.png";
 }
 
-// ✅ FIXED RECEIVE IMAGE (uses same UI)
 socket.on("receive_image", function(data) {
     createMessage(data.name, data.image, true);
 });
 
-// ✅ IMAGE PREVIEW
 const input = document.getElementById("imageInput");
 const preview = document.getElementById("previewImage");
-
 input.addEventListener("change", function () {
     const file = this.files[0];
-
-    if (file) {
-        preview.src = URL.createObjectURL(file);
-    }
+    if (file) preview.src = URL.createObjectURL(file);
 });
 
 function handleSend() {
@@ -140,5 +134,6 @@ function handleSend() {
     {% endif %}
 </script>
 {% endfor %}
+
 </body>
 </html>

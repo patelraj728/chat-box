@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Join Room</title>
+<title>PRIVATE_ROOM.SH</title>
 <link rel="stylesheet" href="/static/css/style.css">
 </head>
 
@@ -11,21 +11,48 @@
 
 <div class="card">
 
-    <h2>Private Room</h2>
+    <div class="card-body">
 
-    <form method="post">
+        <pre class="ascii-logo">
+ ██████╗ ██████╗ ██╗██╗   ██╗ █████╗ ████████╗███████╗
+ ██╔══██╗██╔══██╗██║██║   ██║██╔══██╗╚══██╔══╝██╔════╝
+ ██████╔╝██████╔╝██║██║   ██║███████║   ██║   █████╗  
+ ██╔═══╝ ██╔══██╗██║╚██╗ ██╔╝██╔══██║   ██║   ██╔══╝  
+ ██║     ██║  ██║██║ ╚████╔╝ ██║  ██║   ██║   ███████╗
+ ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═══╝  ╚═╝  ╚═╝  ╚═╝   ╚══════╝
+        </pre>
 
-        <input type="text" name="name" placeholder="Your Name" value="{{name}}">
-        <input type="text" name="code" placeholder="Room Code" value="{{code}}">
+        <h2>SECURE CHANNEL<span class="cursor"></span></h2>
 
-        <button type="submit" name="join">Join Room</button>
-        <button type="submit" name="create">Create Room</button>
+        <form method="post">
 
-    </form>
+            <div class="prompt-line">
+                <span class="prompt-label">user@node:~$</span>
+                <input type="text" name="name" placeholder="enter_name" value="{{name}}" autocomplete="off" spellcheck="false">
+            </div>
 
-    {% if error %}
-    <div class="error">{{error}}</div>
-    {% endif %}
+            <div class="prompt-line">
+                <span class="prompt-label">room@node:~$</span>
+                <input type="text" name="code" placeholder="room_code" value="{{code}}" autocomplete="off" spellcheck="false">
+            </div>
+
+            <div class="btn-group">
+                <button type="submit" name="join">JOIN ROOM</button>
+                <button type="submit" name="create">CREATE ROOM</button>
+            </div>
+
+        </form>
+
+        {% if error %}
+        <div class="error">{{error}}</div>
+        {% endif %}
+
+        <div class="status-bar">
+            <span>[OK] SYSTEM READY</span>
+            <span>v2.0.1 // E2E_ENCRYPTED</span>
+        </div>
+
+    </div>
 
 </div>
 
