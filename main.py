@@ -1,5 +1,4 @@
-import eventlet
-eventlet.monkey_patch()
+
 from flask import Flask,redirect,url_for,render_template,request,session,jsonify
 from flask_socketio import SocketIO,rooms,join_room,leave_room,send,emit
 import random
@@ -65,6 +64,9 @@ def room():
     
     return render_template('room.html',room=room,name=name,messages=rooms[room]["messages"])
 
+@app.route('/about')
+def about():
+    return render_template('about.html')
 
 @socketio.on('connect')
 def connect():
