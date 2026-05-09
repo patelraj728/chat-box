@@ -1,5 +1,3 @@
-import eventlet
-eventlet.monkey_patch()
 from flask import Flask,redirect,url_for,render_template,request,session,jsonify
 from flask_socketio import SocketIO,rooms,join_room,leave_room,send,emit
 import random
@@ -10,7 +8,11 @@ from string import ascii_uppercase
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret_key'
-socketio = SocketIO(app)
+socketio = SocketIO(
+    app,
+    async_mode='threading',
+    cors_allowed_origins="*"
+)
 cloudinary.config(
     cloud_name=os.environ.get("CLOUDINARY_CLOUD_NAME"),
     api_key=os.environ.get("CLOUDINARY_API_KEY"),
@@ -96,18 +98,30 @@ def disconnect():
     room = session.get('room')
     name = session.get('name')
 
+    if not room or room not in rooms:
+        return
+
     leave_room(room)
-    if room in rooms:
-        rooms[room]['members'] -= 1
+
+    rooms[room]['members'] -= 1
+
+    if name in rooms[room]['names']:
         rooms[room]['names'].remove(name)
-        if rooms[room]['members'] <= 0:
-            del rooms[room]
-    send({"name":name,
-          "message":"has lefted the room",
-          "members":rooms[room]['members'],
-          "names":rooms[room]['names'],
-          },to=room)
-    print(f'{name} lefted room {room}')
+
+    members = rooms[room]['members']
+    names = rooms[room]['names']
+
+    send({
+        "name": name,
+        "message": "has left the room",
+        "members": members,
+        "names": names,
+    }, to=room)
+
+    if members <= 0:
+        del rooms[room]
+
+    print(f'{name} left room {room}')
 
 
 
