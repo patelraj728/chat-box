@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-<title>CHAT_ROOM // {{room}}</title>
+<title>Room — {{ room }}</title>
 <link rel="stylesheet" href="/static/css/style.css">
 </head>
 
@@ -15,11 +15,11 @@
 
     <div class="header">
         <div class="header-bar">
-            <span>PRIVATE_ROOM.SH &mdash; ACTIVE SESSION</span>
-            <span>[OK]</span>
+            <span>✉️ Private Room — Live session</span>
+            <span>🔒 Secure</span>
         </div>
         <div class="header-meta">
-            <div class="header-room">{{room}}</div>
+            <div class="header-room">{{ room }}</div>
             <div id="names"></div>
         </div>
     </div>
@@ -27,13 +27,13 @@
     <div class="messages" id="messages"></div>
 
     <div class="input-area">
-        <span class="input-prompt">{{name}}@room:~$</span>
-        <input type="file" id="imageInput" hidden>
+        <span class="input-prompt">{{ name }}</span>
+        <input type="file" id="imageInput" accept="image/*" hidden>
         <label for="imageInput" class="upload-icon" title="Attach image">
             <img src="/static/images/photo.png" id="previewImage" alt="Upload">
         </label>
-        <input type="text" id="message" placeholder="type message..." autocomplete="off" spellcheck="false">
-        <button onclick="handleSend()">SEND</button>
+        <input type="text" id="message" placeholder="Write something..." autocomplete="off" spellcheck="false">
+        <button onclick="handleSend()">Send →</button>
     </div>
 
 </div>
@@ -44,7 +44,7 @@ var socket = io();
 const currentRoom = "{{ room }}";
 const messages = document.getElementById('messages');
 const names = document.getElementById('names');
-const myName = "{{name}}";
+const myName = "{{ name }}";
 
 const createMessage = (name, msg, isImage = false) => {
     const isMe = name === myName;
@@ -59,8 +59,8 @@ const createMessage = (name, msg, isImage = false) => {
     if (!isMe) {
         inner += `<div class="username">${name}</div>`;
     }
-    inner += `<div>${isImage ? `<img src="${msg}" class="chat-image">` : msg}</div>`;
-    inner += `<div class="meta">${new Date().toLocaleTimeString()}</div>`;
+    inner += `<div>${isImage ? `<img src="${msg}" class="chat-image" onclick="window.open('${msg}','_blank')">` : msg}</div>`;
+    inner += `<div class="meta">${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>`;
 
     bubble.innerHTML = inner;
     wrapper.appendChild(bubble);
@@ -68,20 +68,20 @@ const createMessage = (name, msg, isImage = false) => {
     messages.scrollTop = messages.scrollHeight;
 };
 
-socket.on('message', function(data){
+socket.on('message', function(data) {
     names.textContent = data.names;
     createMessage(data.name, data.message);
 });
 
 const sendmessage = () => {
     const input = document.getElementById('message');
-    if(input.value.trim() === "") return;
-    socket.emit("message", {data: input.value});
+    if (input.value.trim() === "") return;
+    socket.emit("message", { data: input.value });
     input.value = "";
 };
 
-document.getElementById("message").addEventListener("keydown", function(e){
-    if(e.key === "Enter" && !e.shiftKey){
+document.getElementById("message").addEventListener("keydown", function(e) {
+    if (e.key === "Enter" && !e.shiftKey) {
         e.preventDefault();
         handleSend();
     }
@@ -95,14 +95,11 @@ function sendImage() {
     let formData = new FormData();
     formData.append("image", file);
 
-    fetch("/upload", {
-        method: "POST",
-        body: formData
-    })
-    .then(res => res.json())
-    .then(data => {
-        socket.emit("send_image", { url: data.url, room: currentRoom });
-    });
+    fetch("/upload", { method: "POST", body: formData })
+        .then(res => res.json())
+        .then(data => {
+            socket.emit("send_image", { url: data.url, room: currentRoom });
+        });
 
     fileInput.value = "";
     document.getElementById("previewImage").src = "/static/images/photo.png";
@@ -128,9 +125,9 @@ function handleSend() {
 {% for msg in messages %}
 <script>
     {% if msg.image %}
-        createMessage("{{msg.name}}", "{{msg.image}}", true);
+        createMessage("{{ msg.name }}", "{{ msg.image }}", true);
     {% else %}
-        createMessage("{{msg.name}}", "{{msg.message}}");
+        createMessage("{{ msg.name }}", "{{ msg.message }}");
     {% endif %}
 </script>
 {% endfor %}

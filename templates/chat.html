@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<title>Chat — Private Room</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<div class="chat-dashboard">
+    <!-- SIDEBAR -->
+    <div class="chat-sidebar">
+        <div class="sidebar-header">
+            <div class="user-profile">
+                <img src="{{ profile_pic }}" alt="Avatar" class="avatar-pic">
+                <div class="user-info">
+                    <span class="user-fullname">{{ name }}</span>
+                    <span class="user-username">@{{ username }}</span>
+                </div>
+            </div>
+            <a href="/logout" class="btn-logout">Log out</a>
+        </div>
+
+        <div class="search-box">
+            <div class="prompt-line compact">
+                <span class="prompt-label">🔍</span>
+                <input type="text" id="userSearch" placeholder="Find someone..." autocomplete="off" spellcheck="false">
+            </div>
+        </div>
+
+        <div class="user-list-header">People on the network</div>
+        <div class="user-list" id="userList">
+            <div class="loading-indicator">Loading contacts...</div>
+        </div>
+    </div>
+
+    <!-- MAIN CHAT AREA -->
+    <div class="chat-workspace">
+
+        <!-- EMPTY STATE -->
+        <div class="empty-state" id="emptyState">
+            <div class="empty-state-content">
+                <span class="empty-state-icon">💬</span>
+                <div class="empty-state-title">Pick someone to chat with</div>
+                <div class="empty-state-sub">Select a contact from the left panel to start a private conversation.</div>
+            </div>
+        </div>
+
+        <!-- ACTIVE CHAT -->
+        <div class="chat-window" id="chatWindow" style="display:none;">
+            <div class="header">
+                <div class="header-bar">
+                    <span>✉️ Direct message — active</span>
+                    <span id="chatStatusText">🔒 Encrypted</span>
+                </div>
+                <div class="header-meta">
+                    <div class="header-room" id="activeChatName">—</div>
+                    <div id="activeChatStatus">—</div>
+                </div>
+            </div>
+
+            <div class="messages" id="messages"></div>
+
+            <div class="input-area">
+                <span class="input-prompt" id="myPromptLabel">you</span>
+                <input type="file" id="imageInput" accept="image/*" hidden>
+                <label for="imageInput" class="upload-icon" title="Attach image">
+                    <img src="/static/images/photo.png" id="previewImage" alt="Upload">
+                </label>
+                <input type="text" id="message" placeholder="Write a message..." autocomplete="off" spellcheck="false">
+                <button onclick="handleSend()">Send →</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+    var socket = io();
+    const myId = parseInt("{{ user_id }}");
+    const myUsername = "{{ username }}";
+
+    let allUsers = [];
+    let selectedUserId = null;
+    let unreadCounts = {};
+
+    const userListEl      = document.getElementById('userList');
+    const userSearchEl    = document.getElementById('userSearch');
+    const emptyStateEl    = document.getElementById('emptyState');
+    const chatWindowEl    = document.getElementById('chatWindow');
+    const activeChatNameEl   = document.getElementById('activeChatName');
+    const activeChatStatusEl = document.getElementById('activeChatStatus');
+    const chatStatusTextEl   = document.getElementById('chatStatusText');
+    const messagesEl      = document.getElementById('messages');
+    const myPromptLabelEl = document.getElementById('myPromptLabel');
+    const messageInputEl  = document.getElementById('message');
+    const imageInputEl    = document.getElementById('imageInput');
+    const previewImageEl  = document.getElementById('previewImage');
+
+    myPromptLabelEl.textContent = myUsername;
+
+    Promise.all([
+        fetch('/api/users').then(r => r.json()),
+        fetch('/api/unread').then(r => r.json())
+    ]).then(([users, unreads]) => {
+        allUsers = users.filter(u => !u.is_self);
+        unreadCounts = unreads;
+        renderUsersList();
+    }).catch(() => {
+        userListEl.innerHTML = '<div class="empty-directory">Failed to load contacts.</div>';
+    });
+
+    function renderUsersList() {
+        const query = userSearchEl.value.toLowerCase().trim();
+        userListEl.innerHTML = '';
+
+        const filtered = allUsers.filter(u =>
+            u.username.toLowerCase().includes(query) ||
+            u.name.toLowerCase().includes(query)
+        );
+
+        if (filtered.length === 0) {
+            userListEl.innerHTML = '<div class="empty-directory">No contacts found.</div>';
+            return;
+        }
+
+        filtered.forEach(user => {
+            const isSelected = user.id === selectedUserId;
+            const unread = unreadCounts[user.id] || 0;
+
+            const item = document.createElement('div');
+            item.className = `user-item ${isSelected ? 'active' : ''}`;
+            item.onclick = () => selectUserChat(user.id);
+
+            const statusClass = user.online ? 'online' : 'offline';
+            const statusLabel = user.online ? 'online' : 'offline';
+
+            item.innerHTML = `
+                <div class="user-item-avatar">
+                    <img src="${user.profile_pic}" alt="${user.username}">
+                    <span class="status-indicator ${statusClass}"></span>
+                </div>
+                <div class="user-item-details">
+                    <div class="user-item-fullname">${user.name}</div>
+                    <div class="user-item-username">@${user.username} <span class="status-text ${statusClass}">${statusLabel}</span></div>
+                </div>
+                ${unread > 0 ? `<span class="unread-badge">${unread}</span>` : ''}
+            `;
+            userListEl.appendChild(item);
+        });
+    }
+
+    userSearchEl.addEventListener('input', renderUsersList);
+
+    function selectUserChat(userId) {
+        selectedUserId = userId;
+        const targetUser = allUsers.find(u => u.id === userId);
+        if (!targetUser) return;
+
+        unreadCounts[userId] = 0;
+        renderUsersList();
+
+        activeChatNameEl.textContent = targetUser.name;
+        activeChatStatusEl.innerHTML = `<span class="${targetUser.online ? 'online' : 'offline'}">${targetUser.online ? '● Online' : '○ Offline'}</span>`;
+        chatStatusTextEl.textContent = `🔒 Chatting with @${targetUser.username}`;
+
+        messagesEl.innerHTML = '<div class="loading-indicator">Loading messages...</div>';
+        emptyStateEl.style.display = 'none';
+        chatWindowEl.style.display = 'flex';
+
+        fetch(`/api/history/${userId}`)
+            .then(r => r.json())
+            .then(history => {
+                messagesEl.innerHTML = '';
+                history.forEach(msg => appendMessageHTML(msg));
+                messagesEl.scrollTop = messagesEl.scrollHeight;
+            })
+            .catch(() => {
+                messagesEl.innerHTML = '<div class="empty-directory">Failed to load history.</div>';
+            });
+    }
+
+    function appendMessageHTML(msg) {
+        const isMe = msg.sender_id === myId;
+        const wrapper = document.createElement('div');
+        wrapper.className = `message ${isMe ? 'sent' : 'received'}`;
+
+        const bubble = document.createElement('div');
+        bubble.className = 'msg-bubble';
+
+        let inner = '';
+        if (!isMe) {
+            const sender = allUsers.find(u => u.id === msg.sender_id);
+            inner += `<div class="username">${sender ? sender.username : 'unknown'}</div>`;
+        }
+        if (msg.image_url) {
+            inner += `<div><img src="${msg.image_url}" class="chat-image" onclick="window.open('${msg.image_url}','_blank')"></div>`;
+        }
+        if (msg.message) {
+            inner += `<div>${escapeHTML(msg.message)}</div>`;
+        }
+        inner += `<div class="meta">${new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>`;
+
+        bubble.innerHTML = inner;
+        wrapper.appendChild(bubble);
+        messagesEl.appendChild(wrapper);
+    }
+
+    function escapeHTML(str) {
+        return str.replace(/[&<>'"]/g, tag => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[tag] || tag));
+    }
+
+    socket.on('new_private_message', function(msg) {
+        const isChatOpenWithSender = msg.sender_id === selectedUserId;
+        const isChatOpenWithReceiver = msg.receiver_id === selectedUserId;
+        const isFromMe = msg.sender_id === myId;
+
+        if ((isChatOpenWithSender && msg.receiver_id === myId) || (isFromMe && isChatOpenWithReceiver)) {
+            appendMessageHTML(msg);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+            if (!isFromMe) fetch(`/api/history/${selectedUserId}`);
+        } else if (!isFromMe) {
+            unreadCounts[msg.sender_id] = (unreadCounts[msg.sender_id] || 0) + 1;
+            renderUsersList();
+            playBeep();
+        }
+    });
+
+    socket.on('user_status', function(data) {
+        const userId = parseInt(data.user_id);
+        const user = allUsers.find(u => u.id === userId);
+        if (user) {
+            user.online = (data.status === 'online');
+            renderUsersList();
+            if (userId === selectedUserId) {
+                activeChatStatusEl.innerHTML = `<span class="${user.online ? 'online' : 'offline'}">${user.online ? '● Online' : '○ Offline'}</span>`;
+            }
+        }
+    });
+
+    const sendMessage = () => {
+        const text = messageInputEl.value.trim();
+        if (!text || selectedUserId === null) return;
+        socket.emit("private_message", { receiver_id: selectedUserId, message: text, image_url: null });
+        messageInputEl.value = "";
+    };
+
+    function sendImage() {
+        let file = imageInputEl.files[0];
+        if (!file || selectedUserId === null) return;
+
+        previewImageEl.src = "/static/images/photo.png";
+        let formData = new FormData();
+        formData.append("image", file);
+
+        fetch("/upload", { method: "POST", body: formData })
+            .then(r => r.json())
+            .then(data => {
+                if (data.url) {
+                    socket.emit("private_message", { receiver_id: selectedUserId, message: "", image_url: data.url });
+                } else {
+                    alert("Upload failed.");
+                }
+            })
+            .catch(() => alert("File upload failed."));
+
+        imageInputEl.value = "";
+    }
+
+    function handleSend() {
+        if (imageInputEl.files.length > 0) sendImage();
+        sendMessage();
+    }
+
+    messageInputEl.addEventListener("keydown", function(e) {
+        if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
+    });
+
+    imageInputEl.addEventListener("change", function() {
+        const file = this.files[0];
+        if (file) {
+            previewImageEl.src = URL.createObjectURL(file);
+            previewImageEl.style.filter = "none";
+        }
+    });
+
+    function playBeep() {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.frequency.value = 660;
+            gain.gain.value = 0.04;
+            osc.start();
+            osc.stop(ctx.currentTime + 0.1);
+        } catch(e) {}
+    }
+</script>
+
+</body>
+</html>

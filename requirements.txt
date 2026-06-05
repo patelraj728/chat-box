@@ -2,3 +2,9 @@ Flask
 gunicorn
 flask-socketio
 cloudinary
+Flask-SQLAlchemy
+PyMySQL
+cryptography
+google-auth
+requests
+python-dotenv

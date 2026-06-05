@@ -3,8 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PRIVATE_ROOM.SH</title>
+<title>PRIVATE_ROOM.SH // LOGIN</title>
 <link rel="stylesheet" href="/static/css/style.css">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 
 <body class="home-center">
@@ -24,41 +25,143 @@
 
         <h2>SECURE CHANNEL<span class="cursor"></span></h2>
 
-        <form method="post">
+        <!-- Mode Selector Tabs -->
+        <div class="mode-selector">
+            <button type="button" id="tab-room" class="tab-btn active" onclick="switchMode('room')">1. PUBLIC ROOMS</button>
+            <button type="button" id="tab-direct" class="tab-btn" onclick="switchMode('direct')">2. SECURE CHAT</button>
+        </div>
 
-            <div class="prompt-line">
-                <span class="prompt-label">user@node:~$</span>
-                <input type="text" name="name" placeholder="enter_name" value="{{name}}" autocomplete="off" spellcheck="false">
+        <!-- Mode 1: Public Room Chat (Original Feature) -->
+        <div id="mode-room-panel">
+            <form method="post" action="/">
+                <div class="prompt-line">
+                    <span class="prompt-label">user@node:~$</span>
+                    <input type="text" name="name" placeholder="enter_name" value="{{name or ''}}" autocomplete="off" spellcheck="false">
+                </div>
+
+                <div class="prompt-line">
+                    <span class="prompt-label">room@node:~$</span>
+                    <input type="text" name="code" placeholder="room_code" value="{{code or ''}}" autocomplete="off" spellcheck="false">
+                </div>
+
+                <div class="btn-group">
+                    <button type="submit" name="join">JOIN ROOM</button>
+                    <button type="submit" name="create">CREATE ROOM</button>
+                    <button type="button" onclick="window.location.href='/about'">
+                        ABOUT PROJECT
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Mode 2: Direct Chat with Google Login -->
+        <div id="mode-direct-panel" style="display: none;">
+            {% if google_client_id %}
+            <!-- Google Identity Services Button -->
+            <div style="display: flex; flex-direction: column; align-items: center; margin: 15px 0; border: 1px dashed var(--border); padding: 15px; background: rgba(51, 255, 0, 0.02);">
+                <div style="font-size: 0.65rem; color: var(--dim); margin-bottom: 10px; letter-spacing: 2px;">AUTHENTICATE VIA OAUTH</div>
+                <div id="g_id_onload"
+                     data-client_id="{{ google_client_id }}"
+                     data-context="signin"
+                     data-ux_mode="popup"
+                     data-callback="handleCredentialResponse"
+                     data-auto_prompt="false">
+                </div>
+                <div class="g_id_signin"
+                     data-type="standard"
+                     data-shape="rectangular"
+                     data-theme="filled_black"
+                     data-text="signin_with"
+                     data-size="large"
+                     data-logo_alignment="left">
+                </div>
             </div>
-
-            <div class="prompt-line">
-                <span class="prompt-label">room@node:~$</span>
-                <input type="text" name="code" placeholder="room_code" value="{{code}}" autocomplete="off" spellcheck="false">
+            {% else %}
+            <div style="border: 1px dashed var(--error); color: var(--error); font-size: 0.7rem; padding: 10px; margin: 15px 0; text-align: center; letter-spacing: 1px; text-shadow: 0 0 5px rgba(255, 51, 51, 0.4);">
+                [WARN] GOOGLE_CLIENT_ID NOT CONFIGURED // RUNNING IN DEVELOPER DEBUG MODE
             </div>
+            {% endif %}
 
-            <div class="btn-group">
-                <button type="submit" name="join">JOIN ROOM</button>
-                <button type="submit" name="create">CREATE ROOM</button>
+            <!-- Debug Login Form -->
+            <form method="post" action="/login-debug" style="margin-top: 15px;">
+                <div style="font-size: 0.65rem; color: var(--dim); margin-bottom: 8px; letter-spacing: 2px; text-align: center;">
+                    DEVELOPER ACCESS PANEL
+                </div>
 
-                <button type="button" onclick="window.location.href='/about'">
-                    ABOUT PROJECT
-                </button>
-            </div>
+                <div class="prompt-line">
+                    <span class="prompt-label">debug@email:~$</span>
+                    <input type="email" name="email" placeholder="test_user@example.com" required autocomplete="off" spellcheck="false">
+                </div>
 
-        </form>
+                <div class="prompt-line">
+                    <span class="prompt-label">debug@name:~$</span>
+                    <input type="text" name="name" placeholder="Test User Name" required autocomplete="off" spellcheck="false">
+                </div>
+
+                <div class="btn-group">
+                    <button type="submit">DEBUG ACCESS</button>
+                    <button type="button" onclick="window.location.href='/chat'" style="border-color: var(--secondary); color: var(--secondary);">
+                        GO TO PUBLIC CHAT
+                    </button>
+                </div>
+            </form>
+        </div>
 
         {% if error %}
         <div class="error">{{error}}</div>
         {% endif %}
 
         <div class="status-bar">
-            <span>[OK] SYSTEM READY</span>
-            <span>v2.0.1 // E2E_ENCRYPTED</span>
+            <span>[OK] SYSTEM ONLINE</span>
+            <span>v2.2.0 // MULTI_MODE</span>
         </div>
 
     </div>
 
 </div>
+
+<script>
+function switchMode(mode) {
+    const roomBtn = document.getElementById('tab-room');
+    const directBtn = document.getElementById('tab-direct');
+    const roomPanel = document.getElementById('mode-room-panel');
+    const directPanel = document.getElementById('mode-direct-panel');
+
+    if (mode === 'room') {
+        roomBtn.classList.add('active');
+        directBtn.classList.remove('active');
+        roomPanel.style.display = 'block';
+        directPanel.style.display = 'none';
+    } else {
+        roomBtn.classList.remove('active');
+        directBtn.classList.add('active');
+        roomPanel.style.display = 'none';
+        directPanel.style.display = 'block';
+    }
+}
+
+function handleCredentialResponse(response) {
+    fetch('/login-google', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ id_token: response.credential })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            window.location.href = data.redirect;
+        } else {
+            alert(data.error || 'OAuth verification failed.');
+        }
+    })
+    .catch(err => {
+        console.error('Sign-in error:', err);
+        alert('Network communication error during Sign-In.');
+    });
+}
+</script>
 
 </body>
 </html>

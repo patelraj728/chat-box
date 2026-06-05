@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Choose Username — Private Room</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="home-center">
+
+<div class="card" style="width:90%;max-width:440px;position:relative;">
+    <div class="tape"></div>
+
+    <div class="card-body">
+
+        <div class="sketch-title">👤 Pick a username</div>
+        <div class="sketch-subtitle">
+            Hey <strong style="color:var(--secondary);">{{ name }}</strong>! Choose how others will see you.
+        </div>
+
+        <h2>Almost there <span class="cursor"></span></h2>
+
+        <form method="post" action="/username">
+            <div class="prompt-line">
+                <span class="prompt-label">@</span>
+                <input
+                    type="text"
+                    name="username"
+                    placeholder="your_username"
+                    required
+                    pattern="^[a-zA-Z0-9_]{3,20}$"
+                    title="3–20 characters: letters, numbers, underscores only"
+                    autocomplete="off"
+                    spellcheck="false"
+                    autofocus>
+            </div>
+
+            <p style="font-size:0.78rem;color:rgba(45,45,45,0.45);margin:6px 2px 14px;font-family:var(--font-body);">
+                3–20 characters · letters, numbers &amp; underscores only
+            </p>
+
+            <div class="btn-group">
+                <button type="submit">Register username →</button>
+            </div>
+        </form>
+
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+
+        <div class="status-bar">
+            <span>⏳ Pending registration</span>
+            <span>v2.0.1</span>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
