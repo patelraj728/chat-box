@@ -9,5 +9,4 @@ google-auth
 requests
 python-dotenv
 psycopg2-binary
-gevent
-gevent-websocket
+eventlet

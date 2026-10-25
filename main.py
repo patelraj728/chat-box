@@ -1,4 +1,4 @@
-from gevent import monkey; monkey.patch_all()
+import eventlet; eventlet.monkey_patch()
 from flask import Flask, redirect, url_for, render_template, request, session, jsonify
 from flask_socketio import SocketIO, join_room, leave_room, send, emit
 from flask_sqlalchemy import SQLAlchemy
@@ -34,7 +34,7 @@ db = SQLAlchemy(app)
 # Initialize SocketIO
 socketio = SocketIO(
     app,
-    async_mode='gevent',
+    async_mode='eventlet',
     cors_allowed_origins="*"
 )
 
