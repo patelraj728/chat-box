@@ -9,4 +9,3 @@ google-auth
 requests
 python-dotenv
 psycopg2-binary
-eventlet
