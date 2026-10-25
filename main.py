@@ -23,6 +23,13 @@ db_url = os.environ.get("DATABASE_URL")
 if not db_url:
     db_url = "sqlite:///chatbox.db"
     print("[WARNING] DATABASE_URL not set. Falling back to local SQLite database.")
+elif db_url.startswith("postgresql://"):
+    # SQLAlchemy 2.x defaults to psycopg3 for plain postgresql://
+    # Force psycopg2 driver since that's what we have installed
+    db_url = db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
+elif db_url.startswith("postgres://"):
+    # Heroku/Render sometimes uses postgres:// — fix both prefix and driver
+    db_url = db_url.replace("postgres://", "postgresql+psycopg2://", 1)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
