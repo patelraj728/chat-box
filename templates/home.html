@@ -169,17 +169,23 @@ function handleCredentialResponse(response) {
         },
         body: JSON.stringify({ id_token: response.credential })
     })
-    .then(res => res.json())
-    .then(data => {
-        if (data.success) {
-            window.location.href = data.redirect;
-        } else {
-            alert(data.error || 'OAuth verification failed.');
+    .then(async res => {
+        let data = null;
+        try {
+            data = await res.json();
+        } catch (parseErr) {
+            // Non-JSON response (e.g. 500 HTML error page)
         }
+        if (!res.ok || !data || !data.success) {
+            const errorMsg = (data && data.error) ? data.error : `Server Error (HTTP ${res.status}). Check server logs.`;
+            alert(errorMsg);
+            return;
+        }
+        window.location.href = data.redirect;
     })
     .catch(err => {
         console.error('Sign-in error:', err);
-        alert('Network communication error during Sign-In.');
+        alert('Network communication error: ' + (err.message || 'Unable to reach server.'));
     });
 }
 </script>

@@ -31,6 +31,21 @@ elif db_url.startswith("postgres://"):
     # Heroku/Render sometimes uses postgres:// — fix both prefix and driver
     db_url = db_url.replace("postgres://", "postgresql+psycopg2://", 1)
 
+# Verify remote database connectivity with a timeout
+# Render web services do not support outbound IPv6, so IPv6-only hosts
+# (like Supabase direct connection strings) would otherwise cause unhandled 500 errors.
+if "sqlite" not in db_url:
+    from sqlalchemy import create_engine
+    try:
+        test_engine = create_engine(db_url, connect_args={"connect_timeout": 4})
+        with test_engine.connect() as conn:
+            print("[SUCCESS] Verified remote database connection successfully.")
+        test_engine.dispose()
+    except Exception as e:
+        print(f"[WARNING] Remote database connection failed: {e}")
+        print("[WARNING] Falling back to SQLite (sqlite:///chatbox.db) so login and app work reliably.")
+        db_url = "sqlite:///chatbox.db"
+
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -176,82 +191,93 @@ def room():
 
 @app.route('/login-google', methods=['POST'])
 def login_google():
-    data = request.get_json() or {}
-    token = data.get('id_token')
-    if not token:
-        return jsonify({"success": False, "error": "Missing ID token"}), 400
+    try:
+        data = request.get_json(silent=True) or {}
+        token = data.get('id_token')
+        if not token:
+            return jsonify({"success": False, "error": "Missing ID token"}), 400
+            
+        idinfo = verify_google_token(token)
+        if not idinfo:
+            return jsonify({"success": False, "error": "Google token verification failed. Please try again."}), 400
+            
+        google_id = idinfo.get('sub')
+        email = idinfo.get('email')
+        name = idinfo.get('name', 'Google User')
+        profile_pic = idinfo.get('picture')
         
-    idinfo = verify_google_token(token)
-    if not idinfo:
-        return jsonify({"success": False, "error": "Invalid ID token or verification error"}), 400
+        # Lookup or create user
+        user = User.query.filter_by(google_id=google_id).first()
+        if not user:
+            user = User.query.filter_by(email=email).first()
+            if user:
+                user.google_id = google_id
+                if profile_pic:
+                    user.profile_pic = profile_pic
+            else:
+                user = User(
+                    google_id=google_id,
+                    email=email,
+                    name=name,
+                    profile_pic=profile_pic,
+                    username=None
+                )
+                db.session.add(user)
+            db.session.commit()
+            
+        session['user_id'] = user.id
+        session['email'] = user.email
+        session['name'] = user.name
+        session['profile_pic'] = user.profile_pic
+        session['username'] = user.username
         
-    google_id = idinfo.get('sub')
-    email = idinfo.get('email')
-    name = idinfo.get('name', 'Google User')
-    profile_pic = idinfo.get('picture')
-    
-    # Lookup or create user
-    user = User.query.filter_by(google_id=google_id).first()
-    if not user:
-        user = User.query.filter_by(email=email).first()
-        if user:
-            user.google_id = google_id
-            if profile_pic:
-                user.profile_pic = profile_pic
+        if user.username:
+            return jsonify({"success": True, "redirect": "/chat"})
         else:
+            return jsonify({"success": True, "redirect": "/username"})
+    except Exception as e:
+        db.session.rollback()
+        print(f"[ERROR] /login-google failed: {e}")
+        return jsonify({"success": False, "error": f"Database error during sign-in: {str(e)}"}), 500
+
+@app.route('/login-debug', methods=['POST'])
+def login_debug():
+    try:
+        email = request.form.get('email', '').strip()
+        name = request.form.get('name', '').strip()
+        if not email or not name:
+            google_client_id = os.environ.get("GOOGLE_CLIENT_ID")
+            return render_template('home.html', error="Email and Name are required for debug access.", google_client_id=google_client_id)
+            
+        google_id = f"debug_{email}"
+        
+        user = User.query.filter_by(email=email).first()
+        if not user:
             user = User(
                 google_id=google_id,
                 email=email,
                 name=name,
-                profile_pic=profile_pic,
+                profile_pic=f"https://robohash.org/{email}?set=set4",
                 username=None
             )
             db.session.add(user)
         db.session.commit()
+            
+        session['user_id'] = user.id
+        session['email'] = user.email
+        session['name'] = user.name
+        session['profile_pic'] = user.profile_pic
+        session['username'] = user.username
         
-    session['user_id'] = user.id
-    session['email'] = user.email
-    session['name'] = user.name
-    session['profile_pic'] = user.profile_pic
-    session['username'] = user.username
-    
-    if user.username:
-        return jsonify({"success": True, "redirect": "/chat"})
-    else:
-        return jsonify({"success": True, "redirect": "/username"})
-
-@app.route('/login-debug', methods=['POST'])
-def login_debug():
-    email = request.form.get('email', '').strip()
-    name = request.form.get('name', '').strip()
-    if not email or not name:
+        if user.username:
+            return redirect(url_for('chat'))
+        else:
+            return redirect(url_for('username_onboarding'))
+    except Exception as e:
+        db.session.rollback()
+        print(f"[ERROR] /login-debug failed: {e}")
         google_client_id = os.environ.get("GOOGLE_CLIENT_ID")
-        return render_template('home.html', error="Email and Name are required for debug access.", google_client_id=google_client_id)
-        
-    google_id = f"debug_{email}"
-    
-    user = User.query.filter_by(email=email).first()
-    if not user:
-        user = User(
-            google_id=google_id,
-            email=email,
-            name=name,
-            profile_pic=f"https://robohash.org/{email}?set=set4",
-            username=None
-        )
-        db.session.add(user)
-        db.session.commit()
-        
-    session['user_id'] = user.id
-    session['email'] = user.email
-    session['name'] = user.name
-    session['profile_pic'] = user.profile_pic
-    session['username'] = user.username
-    
-    if user.username:
-        return redirect(url_for('chat'))
-    else:
-        return redirect(url_for('username_onboarding'))
+        return render_template('home.html', error=f"Database error during debug login: {str(e)}", google_client_id=google_client_id)
 
 @app.route('/username', methods=['GET', 'POST'])
 def username_onboarding():
